@@ -20,10 +20,10 @@ public class ScreenMixin {
 
     @ModifyConstant(method = "renderBackground", constant = @Constant(intValue = 0xc0101010))
     private int overrideGradientStart(int constant) {
-        return Config.INSTANCE.gradientStart;
+        return Config.get().gradientStart;
     }
     @ModifyConstant(method = "renderBackground", constant = @Constant(intValue = 0xd0101010))
     private int overrideGradientEnd(int constant) {
-        return Config.INSTANCE.gradientEnd;
+        return Config.get().gradientEnd;
     }
 }

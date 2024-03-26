@@ -6,7 +6,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.CoreShaderRegistrationCallbac
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.Framebuffer;
 import net.minecraft.client.gl.ShaderProgram;
-import net.minecraft.client.gl.WindowFramebuffer;
+import net.minecraft.client.gl.SimpleFramebuffer;
 import net.minecraft.client.render.Tessellator;
 import net.minecraft.client.render.VertexFormat;
 import net.minecraft.client.render.VertexFormats;
@@ -23,13 +23,13 @@ import static com.mojang.blaze3d.platform.GlConst.GL_NEAREST;
 import static com.mojang.blaze3d.platform.GlConst.GL_TEXTURE_2D;
 import static com.mojang.blaze3d.platform.GlConst.GL_TEXTURE_WRAP_S;
 import static com.mojang.blaze3d.platform.GlConst.GL_TEXTURE_WRAP_T;
-import static org.lwjgl.opengl.GL11.glTexParameteri;
+import static com.mojang.blaze3d.platform.GlStateManager._texParameter;
 
 public class Wifmga implements ClientModInitializer {
 	public static final String MOD_ID = "wifmga";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-	private static WindowFramebuffer[] FRAMEBUFFERS = new WindowFramebuffer[0];
+	private static Framebuffer[] FRAMEBUFFERS = new SimpleFramebuffer[0];
 	private static ShaderProgram UP;
 	private static ShaderProgram DOWN;
 
@@ -37,8 +37,8 @@ public class Wifmga implements ClientModInitializer {
 		var display = MinecraftClient.getInstance().getFramebuffer();
 		int screenWidth = display.textureWidth;
 		int screenHeight = display.textureHeight;
-		int maxIterations = MathHelper.ceilLog2(Math.min(screenWidth, screenHeight));
-		int fbLength = Math.min(Config.INSTANCE.iterations, maxIterations);
+		int maxIterations = MathHelper.floorLog2(Math.min(screenWidth, screenHeight));
+		int fbLength = Math.min(Config.get().iterations, maxIterations);
 		if (fbLength != FRAMEBUFFERS.length) {
 			for (int i = fbLength; i < FRAMEBUFFERS.length; i++) {
 				var buffer = FRAMEBUFFERS[i];
@@ -55,12 +55,12 @@ public class Wifmga implements ClientModInitializer {
 			if (buffer != null) {
 				buffer.resize(width, height, MinecraftClient.IS_SYSTEM_MAC);
 			} else {
-				FRAMEBUFFERS[i] = buffer = new WindowFramebuffer(width, height);
+				FRAMEBUFFERS[i] = buffer = new SimpleFramebuffer(width, height, false, MinecraftClient.IS_SYSTEM_MAC);
 			}
 			buffer.setTexFilter(GL_LINEAR);
 			buffer.beginRead();
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			_texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			_texParameter(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			buffer.endRead();
 		}
 	}
@@ -73,8 +73,8 @@ public class Wifmga implements ClientModInitializer {
 		var display = MinecraftClient.getInstance().getFramebuffer();
 		int screenWidth = display.textureWidth;
 		int screenHeight = display.textureHeight;
-		int maxIterations = MathHelper.ceilLog2(Math.min(screenWidth, screenHeight));
-		int expectedLength = Math.min(Config.INSTANCE.iterations, maxIterations);
+		int maxIterations = MathHelper.floorLog2(Math.min(screenWidth, screenHeight));
+		int expectedLength = Math.min(Config.get().iterations, maxIterations);
 		var lastWidth = FRAMEBUFFERS[0].textureWidth;
 		var lastHeight = FRAMEBUFFERS[0].textureHeight;
 		if (expectedLength != FRAMEBUFFERS.length ||
@@ -90,7 +90,7 @@ public class Wifmga implements ClientModInitializer {
 
 	@Override
 	public void onInitializeClient() {
-		LOGGER.info("Hello Fabric world!");
+		Config.init();
 
 		CoreShaderRegistrationCallback.EVENT.register(ctx -> {
 			ctx.register(
@@ -138,9 +138,8 @@ public class Wifmga implements ClientModInitializer {
 
 	private static void runShader(ShaderProgram shader, Framebuffer from, Framebuffer to, double width, double height) {
 		shader.addSampler("DiffuseSampler", from.getColorAttachment());
-		shader.getUniform("InSize").set((float) from.textureWidth, from.textureHeight);
-		shader.getUniform("Offset").set(Config.INSTANCE.offset);
-		shader.bind();
+		shader.getUniform("OutSize").set((float) to.textureWidth, to.textureHeight);
+		shader.getUniform("Offset").set(Config.get().offset);
 		RenderSystem.setShader(() -> shader);
 
 		from.endWrite();
